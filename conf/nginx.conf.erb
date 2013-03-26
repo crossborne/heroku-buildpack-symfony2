@@ -15,7 +15,7 @@ http {
   gzip                on;
   access_log          off;
   error_log           logs/error.log;
-  proxy_max_temp_file_size	0;
+  proxy_max_temp_file_size  0;
   #fastcgi_max_temp_file_size	0;
   limit_conn_zone $binary_remote_addr zone=phplimit:1m; # define a limit bucket for PHP-FPM
   # don't use server listen port in redirects.
@@ -31,8 +31,8 @@ http {
     server unix:/tmp/php-fpm.socket;
   }
 
-  root              /app/;
-  index             index.php index.html index.htm;
+  root              /app/web;
+  index             app.php index.php index.html index.htm;
 
   server {
     listen            <%= ENV['PORT'] %>;
@@ -52,61 +52,25 @@ http {
       log_not_found   off;
     }
 
-    # Deny /favicon.ico
-    location = /favicon.ico {
-      access_log      off;
-      log_not_found   off;
-    }
+    # strip app.php/ prefix if it is present
+	rewrite ^/app\.php/?(.*)$ /$1 permanent;
 
-    # Deny /robots.txt
-    location = /robots.txt {
-      allow           all;
-      log_not_found   off;
-      access_log      off;
-    }
+	location / {
+		index app.php;
+		try_files $uri @rewriteapp;
+	}
 
-    # Status. /status.html uses /status
-    location ~ ^/(status|ping)$ {
-      include         /app/vendor/nginx/conf/fastcgi_params;
-      fastcgi_param   HTTPS $my_https if_not_empty;
-      fastcgi_pass    php_fpm;
-      fastcgi_param   SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
+	location @rewriteapp {
+		rewrite ^(.*)$ /app.php/$1 last;
+	}
 
-    location /server-status {
-      stub_status on;
-      access_log   off;
-    }
-
-    #location / {
-    #  # wordpress fancy rewrites
-    #  if (-f $request_filename) {
-    #    break;
-    #  }
-    #  if (-d $request_filename) {
-    #    break;
-    #  }
-
-    #  rewrite         ^(.+)$ /index.php?q=$1 last;
-
-    #  # Add trailing slash to */wp-admin requests.
-    #  rewrite         /wp-admin$ $scheme://$host$uri/ permanent;
-
-    #  # redirect to feedburner.
-    #  # if ($http_user_agent !~ FeedBurner) {
-    #  #   rewrite ^/feed/?$ http://feeds.feedburner.com/feedburner-feed-id last;
-    #  # }
-    #}
-
-    include /app/conf/nginx.d/*.conf;
-
-    location ~ .*\.php$ {
-      try_files $uri =404;
-      limit_conn phplimit 5; # limit to 5 concurrent users to PHP per IP.
-      include         /app/vendor/nginx/conf/fastcgi_params;
-      fastcgi_param   HTTPS $my_https if_not_empty;
-      fastcgi_pass    php_fpm;
-      fastcgi_param   SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
+	location ~ ^/(app|app_dev|config)\.php(/|$) {
+		fastcgi_split_path_info ^(.+\.php)(/.*)$;
+		limit_conn phplimit 5; # limit to 5 concurrent users to PHP per IP.
+		include         /app/vendor/nginx/conf/fastcgi_params;
+		fastcgi_param   HTTPS $my_https if_not_empty;
+		fastcgi_param   SCRIPT_FILENAME $document_root$fastcgi_script_name;
+		fastcgi_pass    php_fpm;
+	}
   }
 }
