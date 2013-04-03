@@ -71,6 +71,7 @@ http {
 		fastcgi_param   HTTPS $my_https if_not_empty;
 		fastcgi_param   SCRIPT_FILENAME $document_root$fastcgi_script_name;
 		fastcgi_pass    php_fpm;
+		fastcgi_param	SERVER_PORT 80;
 	}
   }
 }
