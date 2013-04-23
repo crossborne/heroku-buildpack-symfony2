@@ -65,6 +65,7 @@ http {
 	}
 
 	location ~ ^/(app|app_dev|config)\.php(/|$) {
+		client_max_body_size 20M;
 		fastcgi_split_path_info ^(.+\.php)(/.*)$;
 		limit_conn phplimit 5; # limit to 5 concurrent users to PHP per IP.
 		include         /app/vendor/nginx/conf/fastcgi_params;
